@@ -1,41 +1,38 @@
 #!/bin/bash
-#SBATCH --qos batch
-#SBATCH --nodes=1 # number of nodes
-#SBATCH --ntasks=1 # number of cores
-#SBATCH --mem=375G # memory pool for all cores
-#SBATCH --time=0-8:00 # time (D-HH:MM)
+#SBATCH --nodes 1
+#SBATCH --ntasks 1
+#SBATCH --cpus-per-task 1
+#SBATCH --mem 128G
+#SBATCH --time 0-8:00
 #SBATCH --array=1-20
+
+################################################################################
+# Reconstruct haplotypes for one project. Run one chromosome per task.
+#
+# Daniel Gatti
+# dan.gatti@jax.org
+# 2023-09-26
+################################################################################
 
 ##### VARIABLES #####
 
-# Current chromosome.
+set -e -u -o pipefail
+
+PROJECT=CSNA
+
 CHR=${SLURM_ARRAY_TASK_ID}
 
-if [ ${CHR} -eq 20 ]
+if [ ${SLURM_ARRAY_TASK_ID} .eq 20 ]
 then
   CHR=X
-
 fi
 
-# qtl2 directory with JSON files.
-JSON_DIR=/compsci/gedi/DO_founder_freq/data/qtl2
-
-# Current JSON file.
-JSON=${JSON_DIR}/chr${CHR}.json
-
-# Current Project (top-level genotype directory)
-PROJECT=209_DO_Pack_Sleep 
-
-# R container.
-CONTAINER=/compsci/gedi/DO_founder_freq/containers/r_qtl2.sif
-
-# R script for haplotype reconstruction.
-RSCRIPT=/compsci/gedi/DO_founder_freq/scripts/haplotype_reconstruction.R
-
+# R container with qtl2.
+R=/compsci/gedi/DO_founder_freq/containers/r_qtl2.sif
 
 ##### MAIN #####
 
 module load singularity
 
-singularity exec -B /compsci ${CONTAINER} Rscript ${RSCRIPT} ${JSON} ${PROJECT} ${CHR}
+singularity run -B /compsci,/gedi ${R} Rscript haplotype_reconstruction.R ${PROJECT} ${CHR}
 
