@@ -31,3 +31,26 @@ source_dir = file.path('', project)
 
 ##### MAIN #####
 
+# Read sample metadata.
+
+# Read GigaMUGA markers.
+
+# Read Neogen files.
+
+# Filter samples by call rate.
+
+# Infer sex.
+
+# Get Chr M genotypes.
+
+# Get Chr Y genotypes.
+
+# Save sample metadata.
+
+# Write covar file.
+
+# Write pheno file.
+
+# Write JSON files.
+
+

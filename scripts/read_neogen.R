@@ -16,7 +16,11 @@ suppressPackageStartupMessages(require(tidyverse))
 # Arguments:
 # top_dir: path to the top-level project directory. The Neogen directories
 #          containing the FinalReport files should be in this directory.
-# markers: data.frame containing GigaMUGA markers. Ususally from Karl Broman. 
+# Returns:
+# list containing two elements: 
+#    geno: data.frame containing genotypes. Markers in rows, samples in columns.
+#          'marker' in first column.
+#    inten: data.frame containing mean Chr X & Y intensities. 
 read_neogen = function(top_dir, markers) {
 
   # Get the neogen directories.
