@@ -34,8 +34,10 @@ read_neogen = function(top_dir, markers) {
 
     print(neogen_dirs[i])
 
-    fr_file = dir(neogen_dirs[i], pattern = 'FinalReport', full.names = TRUE)
+    # Look for FinalReport file. We want it zipped.
+    fr_file = dir(neogen_dirs[i], pattern = 'FinalReport.zip', full.names = TRUE)
 
+    # If FinalReport file was not found, abort.
     if(length(fr_file) == 0) {
     
       print(paste('No FinalReport file in', neogen_dirs[i]))
@@ -43,12 +45,14 @@ read_neogen = function(top_dir, markers) {
     
     } # if(length(fr_file) == 0)
 
+    # Read in FinalReport file.
     fr = fread(cmd = paste0('gunzip -cq ', fr_file), skip = 9,
                sep = '\t', header = TRUE, colClasses = rep(c('character', 'numeric'), c(8, 3))) %>%
            select(`SNP Name`:`SNP Name`:`Allele2 - Forward`, X:Y) %>%
            rename(marker = `SNP Name`, id = `Sample ID`) %>%
            unite('geno', `Allele1 - Forward`, `Allele2 - Forward`, sep = '')
 
+    # Get genotypes as two-letters.
     g = fr %>%
           select(marker, id, geno) %>%
           pivot_wider(names_from = id, values_from = geno)
@@ -59,6 +63,7 @@ read_neogen = function(top_dir, markers) {
       geno = full_join(geno, g, by = 'marker')
     } # else
 
+    # Get intensities on X and Y channels.
     ii = fr %>%
            select(marker, id, X, Y) %>%
            left_join(markers, by = 'marker') %>%

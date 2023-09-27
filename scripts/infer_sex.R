@@ -1,30 +1,34 @@
-################################################################################
-#
-################################################################################
-
-# female: chrX > 0.47  & chrY < 0.15
-# male:   chrX <= 0.47 & chrY >= 0.15
-# XO:     chrX < 0.47  & chrY < 0.15
-# XXY:    chrX > 0.47  & chrY > 0.25
-
+# Infer the sex of the mice from the sample intensities.
 # Arguments:
-# intensities: data.frame containing three columns: 
-#              id: mouse ID,
-#              chrX: mean X chromosome intensity,
-#              chrY: mean Y chromosome intensity.
+# inten: data.frame containing sample id, X & Y intensities.
 # Returns:
-# data.frame containing mouse ID and sex call 
-infer_sex = function(intensities) {
+# data.frame containing sample id and inferred sex.
+# XO:  chrX < 0.45  & chrY < 0.1
+# XX:  chrX >= 0.45 & chrY < 0.1
+# XY:  chrX < 0.47  & chrY >= 0.1
+# XXY: chrX >= 0.47 & chrY > 0.2
+# 
+# Daniel Gatti
+# dan.gatti@jax.org
+# 2023-09-21
+################################################################################
+infer_sex = function(inten) {
 
-  retval = data.frame(id  = intensities$id, 
-                      sex = '')
+  retval = data.frame(id  = inten$id,
+                      sex = NA)
 
-  retval[intensities$chrX > 0.47  & intensities$chrY < 0.15] = 'female'
-  retval[intensities$chrX <= 0.47 & intensities$chrY >= 0.15] = 'male'
-  retval[intensities$chrX < 0.47  & intensities$chrY < 0.15] = 'XO'
-  retval[intensities$chrX > 0.47  & intensities$chrY > 0.15] = 'XXY'
+  # Females: high chrX, low chrY.
+  retval$sex[inten$chrX >= 0.45 & inten$chrY < 0.1] = 'F'
+
+  # Males: low chrX, high chrY.
+  retval$sex[inten$chrX < 0.47  & inten$chrY >= 0.1] = 'M'
+
+  # XO females: low chrX, low chrY.
+  retval$sex[inten$chrX < 0.45  & inten$chrY < 0.1] = 'XO'
+
+  # XXY: high chrX, high chrY.
+  retval$sex[inten$chrX >= 0.47 & inten$chrY > 0.2] = 'XXY'
 
   return(retval)
 
 } # infer_sex()
-
