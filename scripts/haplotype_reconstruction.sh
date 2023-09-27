@@ -2,7 +2,7 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 1
-#SBATCH --mem 128G
+#SBATCH --mem 64G
 #SBATCH --time 0-8:00
 #SBATCH --array=1-20
 
@@ -22,7 +22,7 @@ PROJECT=CSNA
 
 CHR=${SLURM_ARRAY_TASK_ID}
 
-if [ ${SLURM_ARRAY_TASK_ID} .eq 20 ]
+if [ ${SLURM_ARRAY_TASK_ID} -eq 20 ]
 then
   CHR=X
 fi
@@ -34,5 +34,5 @@ R=/compsci/gedi/DO_founder_freq/containers/r_qtl2.sif
 
 module load singularity
 
-singularity run -B /compsci,/gedi ${R} Rscript haplotype_reconstruction.R ${PROJECT} ${CHR}
+singularity exec -B /compsci,/gedi ${R} Rscript haplotype_reconstruction.R ${PROJECT} ${CHR}
 
