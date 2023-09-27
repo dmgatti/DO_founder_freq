@@ -7,6 +7,7 @@
 # 2023-09-27
 ################################################################################
 
+library(qtl2convert)
 library(qtl2)
 library(tidyverse)
 
@@ -21,42 +22,63 @@ data_dir = file.path(base_dir, 'data')
 # Results directory.
 results_dir = file.path(base_dir, 'results')
 
-# Cross object directory.
-cross_dir = file.path(results_dir, 'cross_obj')
-
 # Genoprobs directory.
 probs_dir = file.path(results_dir, 'genoprobs')
 
 
 ##### MAIN #####
 
-
+# Arguments:
+# project: character string containing the top level project directory name.
+# markers: data.frame containing marker information for GigaMUGA. 
 get_crossovers = function(project, markers) {
 
-  # Get a listing of the cross objects.
-  cross_files = dir(cross_dir, pattern = project, full.names = TRUE)
-
-  # Get a listing of the probs objects.
+  # Get a listing of the allele probs objects.
   probs_files = dir(probs_dir, pattern = project,  full.names = TRUE)
   probs_files = probs_files[grep('_genoprobs_', probs_files)]
 
-  stopifnot(length(cross_files) == length(probs_files))
-
   # Extract chromosome from filenames.
-  chr = str_replace_all(basename(cross_files), str_c('^', project, '_cross_chr|\\.rds$'), '')
+  chr = str_replace_all(basename(probs_files), str_c('^', project, '_genoprobs_chr|\\.rds$'), '')
 
-  for(i in seq_along(cross_files)) {
+  # Create map object.
+  markers = markers %>%
+              filter(chr %in% c(1:19, 'X')) %>%
+              mutate(pos = bp_grcm39 * 1e-6) %>%
+              as.data.frame()
+  map     = map_df_to_list(map = markers, pos_column = 'pos')
 
-    # Read cross object.
-    cross = readRDS(cross_files[i])
+  num_xo = NULL
+  xo_pos = NULL
 
-    # Read genoprobs object.
+  # Process one chromosome at a time.
+  for(i in seq_along(probs_files)) {
+
+    print(chr[i])
+
+    # Read in genoprobs for this chromosome.
     probs = readRDS(probs_files[i])
 
-    maxgt  = maxmarg(probs)
-    num_xo = count_xo(maxgt)
+    # Get most 
+    maxgt  = maxmarg(probs, minprob = 0.95)
+    xo_pos[[chr[i]]] = locate_xo(maxgt, map = map)[[1]]
+    
+    df = data.frame(id  = names(xo_pos[[chr[i]]]), 
+                    nxo = sapply(xo_pos[[chr[i]]], length))
+    colnames(df)[2] = names(probs)
+    
+    if(is.null(num_xo)) {
+    
+      num_xo = df
+      
+    } else {
+
+      num_xo = full_join(num_xo, df, by = 'id')
+
+    } # else
 
   } # for(i)
+  
+  return(list(num_xo = num_xo, xo_pos = xo_pos))
 
 } # get_crossovers()
 
