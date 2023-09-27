@@ -27,7 +27,7 @@ suppressPackageStartupMessages(library(qtl2))
 
 # Get command line arguments.
 args = commandArgs(trailingOnly = TRUE)
-# args = ''
+# args = 'DO_Arsenic'
 
 if (length(args) != 1) {
 
@@ -40,8 +40,6 @@ if (length(args) != 1) {
 project = args[1]
 
 print(paste('project:', project))
-
-print(paste('OUTPUT:', output_dir))
 
 # Top-level directory for the project.
 base_dir = '/compsci/gedi/DO_founder_freq'
@@ -84,14 +82,13 @@ source('/compsci/gedi/DO_founder_freq/scripts/prepare_sample_geno.R')
 source('/compsci/gedi/DO_founder_freq/scripts/chrMY_geno.R')
 source('/compsci/gedi/DO_founder_freq/scripts/write_json.R')
 
-
 ##### MAIN #####
 
 # Read in the sample metadata file.
 metadata = read.csv(metadata_file)
   
 # Subset the metadata to retain the rows for the curernt project.
-curr_meta = subset(metadata, metadata$Project == basename(neogen_dir))
+metadata = subset(metadata, metadata$Project == project)
 
 # Read in the GigaMUGA GRCm39 markers.
 markers = readr::read_csv(marker_file, show_col_types = FALSE) %>%
@@ -99,17 +96,23 @@ markers = readr::read_csv(marker_file, show_col_types = FALSE) %>%
             mutate(pos = bp_grcm39 * 1e-6)
 
 # Read in the Neogen files and output genotypes and intensities.
-result = read_neogen(neogen_dir, markers)
+neogen = read_neogen(source_dir)
+
+geno    = neogen$geno
+inten_x = neogen$inten_x
+inten_y = neogen$inten_y
+
+rm(neogen)
+
+#metadata$Unique.Sample.ID[!metadata$Unique.Sample.ID %in% colnames(geno)]
 
 # Only keep samples that are in the metadata.
-local_meta   = subset(metadata, Project == basename(neogen_dir))
-result$geno  = result$geno[,c('marker', local_meta$Unique.Sample.ID)]
-result$inten = result$inten[match(local_meta$Unique.Sample.ID, result$inten$id),]
-
-stopifnot(local_meta$local_meta$Unique.Sample.ID == result$inten$id)
+geno    = geno[,   c('marker', metadata$Unique.Sample.ID)]
+inten_x = inten_x[,c('marker', metadata$Unique.Sample.ID)]
+inten_y = inten_y[,c('marker', metadata$Unique.Sample.ID)]
 
 # Get the genotype call rates.
-cr  = get_call_rate(result$geno)
+cr  = get_call_rate(geno)
 
 # Retain samples with call rates >= 0.9.
 cr = cr %>%
@@ -117,13 +120,15 @@ cr = cr %>%
        separate_wider_delim(id, delim = ';', names = c('dir', 'sample'),
                             cols_remove = FALSE)
 
-local_meta   = local_meta[local_meta$Unique.Sample.ID %in% cr$id,]
-result$geno  = result$geno[,c('marker', cr$id)]
-result$inten = result$inten[result$inten$id %in% cr$id,]
+metadata = metadata[metadata$Unique.Sample.ID %in% cr$id,]
+geno     = geno[,   c('marker', cr$id)]
+inten_x  = inten_x[,c('marker', cr$id)]
+inten_y  = inten_y[,c('marker', cr$id)]
 
-stopifnot(local_meta$Unique.Sample.ID == cr$id)
-stopifnot(colnames(result$geno)[-1]   == cr$id)
-stopifnot(result$inten$id             == cr$id)
+stopifnot(metadata$Unique.Sample.ID == cr$id)
+stopifnot(colnames(geno)[-1]        == cr$id)
+stopifnot(colnames(inten_x)[-1]     == cr$id)
+stopifnot(colnames(inten_y)[-1]     == cr$id)
 
 # Look for duplicate samples. If we find any, retain the one with the
 # highest call rate.
@@ -141,11 +146,12 @@ if(length(dupl) > 0) {
     # Remove the duplicate samples with lower call rates.
     rem = wh[wh != keep]
 
-    local_meta   = local_meta[-rem,]
+    metadata   = metadata[-rem,]
     # marker is in column 1, so add 1 to rem.
-    result$geno  = result$geno[,-(rem + 1)]
-    result$inten = result$inten[-rem,]
-    cr           = cr[-rem,]
+    geno    = geno[,-(rem + 1)]
+    inten_x = inten_x[,-(rem + 1)]
+    inten_y = inten_y[,-(rem + 1)]
+    cr      = cr[-rem,]
 
   } # for(s)
 
@@ -153,19 +159,24 @@ if(length(dupl) > 0) {
 
 stopifnot(!duplicated(cr$id))
 
+# Save genotypes and intensities.
+saveRDS(geno,    file = file.path(output_geno_dir,  str_c(project, '_geno.rds')))
+saveRDS(inten_x, file = file.path(output_inten_dir, str_c(project, '_x.rds')))
+saveRDS(inten_y, file = file.path(output_inten_dir, str_c(project, '_y.rds')))
+
 # Infer sex from the Chr X & Y intensities.
-sex = infer_sex(result$inten)
+sex = infer_sex(inten_x, inten_y, markers)
 
 # Fill in metadata.
-local_meta$Sex = sex$sex[match(local_meta$Unique.Sample.ID, sex$id)]
-local_meta$call_rate = cr$call_rate[match(local_meta$Unique.Sample.ID, cr$id)]
+metadata$Sex       = sex$sex[match(metadata$Unique.Sample.ID,      sex$id)]
+metadata$call_rate = cr$call_rate[match(metadata$Unique.Sample.ID, cr$id)]
 
 # Estimate Chr Y & M haplotypes.
 # Chr M
 founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Mt.csv')) %>%
              rownames_to_column(var = 'marker') %>%
              as.data.frame()
-samples  = result$geno %>%
+samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
              filter(chr == 'M') %>%
              pivot_longer(cols = -marker) %>%
@@ -174,17 +185,14 @@ samples  = result$geno %>%
              select(-chr) %>%
              as.data.frame()
 samples = samples[match(founders$marker, samples$marker),]
-sex_vector = setNames(sex$sex, sex$id)
 
-chrM = chrMY_geno(founders, samples, chr = 'M', sex = sex_vector) %>%
-         rename(chrM     = chr_group,
-                chrM_cor = cor)
+chrM = chrM_geno(founders, samples)
 
 # Chr Y
 founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Y.csv')) %>%
              rownames_to_column(var = 'marker') %>%
              as.data.frame()
-samples  = result$geno %>%
+samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
              filter(chr == 'Y') %>%
              pivot_longer(cols = -marker) %>%
@@ -194,24 +202,22 @@ samples  = result$geno %>%
              as.data.frame()
 samples = samples[match(founders$marker, samples$marker),]
 
-chrY = chrMY_geno(founders, samples, chr = 'Y', sex = sex_vector) %>%
-         rename(chrY     = chr_group,
-                chrY_cor = cor)
+chrY = chrY_geno(founders, samples, sex = sex)
 
 # Add the Chr M & Y genotypes to the sample metadata.
-local_meta = local_meta %>%
+metadata = metadata %>%
                left_join(chrM, by = c('Unique.Sample.ID' = 'id')) %>%
                left_join(chrY, by = c('Unique.Sample.ID' = 'id'))
 
 # Write out sample metadata.
-write_csv(local_meta, file = file.path(data_dir, 'metadata', 
-          str_c(local_meta$Project[1], '_metadata.csv')))
+write_csv(metadata, file = file.path(data_dir, 'metadata', 
+          str_c(project, '_metadata.csv')))
 
 # Read in alleles.
 alleles = readRDS(allele_file)
 
 # Prepare genotypes for qtl2.
-geno = prepare_sample_geno(geno = result$geno, alleles = alleles, markers = markers)
+geno = prepare_sample_geno(geno = geno, alleles = alleles, markers = markers)
 
 for(i in seq_along(geno)) {
 
@@ -220,9 +226,9 @@ for(i in seq_along(geno)) {
 } # for(i)
 
 # Write covar file.
-covar = data.frame(id  = local_meta$Unique.Sample.ID,
-                   sex = local_meta$Sex,
-                   gen = local_meta$DO.Generation) %>%
+covar = data.frame(id  = metadata$Unique.Sample.ID,
+                   sex = metadata$Sex,
+                   gen = metadata$DO.Generation) %>%
          mutate(sex = if_else(sex == 'F',   'female', sex),
                 sex = if_else(sex == 'M',   'male',   sex),
                 sex = if_else(sex == 'XO',  'male',   sex),

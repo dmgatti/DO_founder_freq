@@ -18,7 +18,7 @@
 
 set -e -u -o pipefail
 
-PROJECT=CSNA
+PROJECT=DO_Arsenic
 
 CHR=${SLURM_ARRAY_TASK_ID}
 
