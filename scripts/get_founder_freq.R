@@ -26,7 +26,7 @@ results_dir = file.path(base_dir, 'results')
 metadata_dir = file.path(data_dir, 'metadata')
 
 # Genoprobs directory.
-probs_dir = file.path(results_dir, ' genoprobs')
+probs_dir = file.path(results_dir, 'genoprobs')
 
 
 
@@ -34,10 +34,8 @@ probs_dir = file.path(results_dir, ' genoprobs')
 ##### MAIN #####
 
 
-get_founder_freq = function(project) {
-
-  # Read in sample metadata.
-  metadata = read_csv(file.path(metadata_dir, str_c(project, '_metadata.csv')))
+# Get the founder allele
+get_founder_freq = function(meta) {
 
   # Get a listing of the allele probs objects.
   probs_files = dir(probs_dir, pattern = project,  full.names = TRUE)
@@ -47,8 +45,12 @@ get_founder_freq = function(project) {
   chr = str_replace_all(basename(probs_files), str_c('^', project, '_alleleprobs_chr|\\.rds$'), '')
 
   for(i in seq_along(probs_files)) {
+  
+    print(chr[[i]])
 
-    pr = readRDS(probs_files[i])
+    probs = readRDS(probs_files[i])
+
+    
 
   } # for(i)
 
