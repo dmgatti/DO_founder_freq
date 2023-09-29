@@ -27,7 +27,7 @@ suppressPackageStartupMessages(library(qtl2))
 
 # Get command line arguments.
 args = commandArgs(trailingOnly = TRUE)
-# args = 'DO_Arsenic'
+# args = 'Sethupathy_Rockefeller'
 
 if (length(args) != 1) {
 
@@ -68,7 +68,7 @@ output_inten_dir = file.path(data_dir, 'intensities')
 metadata_file = file.path(data_dir, 'gigamuga_sample_metadata.csv')
 
 # GigaMUGa GRCm39 marker file.
-marker_file = '/compsci/gedi/DO_founder_freq/data/gm_uwisc_v4.csv'
+marker_file = file.path(data_dir, 'gm_uwisc_v4.csv')
 
 # Allele code file.
 allele_file = file.path(ref_dir, 'allele_codes.rds')
@@ -86,7 +86,7 @@ source('/compsci/gedi/DO_founder_freq/scripts/write_json.R')
 
 # Read in the sample metadata file.
 metadata = read.csv(metadata_file)
-  
+
 # Subset the metadata to retain the rows for the curernt project.
 metadata = subset(metadata, metadata$Project == project)
 
@@ -221,6 +221,7 @@ geno = prepare_sample_geno(geno = geno, alleles = alleles, markers = markers)
 
 for(i in seq_along(geno)) {
 
+  print(names(geno)[i])
   write_csv(geno[[i]], file = file.path(qtl2_dir, str_c('geno_chr', names(geno)[i], '.csv')))
 
 } # for(i)
