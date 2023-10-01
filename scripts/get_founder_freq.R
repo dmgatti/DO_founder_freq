@@ -26,33 +26,82 @@ results_dir = file.path(base_dir, 'results')
 metadata_dir = file.path(data_dir, 'metadata')
 
 # Genoprobs directory.
-probs_dir = file.path(results_dir, 'genoprobs')
+probs_dir = file.path(results_dir, 'probs_by_gen')
 
-
-
+# Output directory for generation linear model results.
+out_dir = file.path(results_dir, 'gen_lm')
 
 ##### MAIN #####
 
+# Get the unique generations from the allele probs filenames.
+probs_files = dir(probs_dir)
+probs_files = str_replace_all(probs_files, 'gen|_alleleprobs_chr[0-9,X]+\\.rds', '')
 
-# Get the founder allele
-get_founder_freq = function(meta) {
+unique_gen  = sort(as.numeric(unique(probs_files)))
 
-  # Get a listing of the allele probs objects.
-  probs_files = dir(probs_dir, pattern = project,  full.names = TRUE)
-  probs_files = probs_files[grep('_alleleprobs_', probs_files)]
+# Just keep G22 and higher for now.
+unique_gen = unique_gen[unique_gen >= 22]
 
-  # Extract chromosome from filenames.
-  chr = str_replace_all(basename(probs_files), str_c('^', project, '_alleleprobs_chr|\\.rds$'), '')
+# Read in each chomosome and fit a model at each marker of
+# probs ~ gen. Save the p-value and R^2.
+for(chr in c(1:19, 'X')) {
+ 
+  print(str_c('CHR ', chr))
 
-  for(i in seq_along(probs_files)) {
+  # Get the probs filenames for thie chromosome.
+  probs_files = dir(probs_dir, pattern = str_c('chr', chr, '\\.rds'), full.names = TRUE)
+  probs_files = probs_files[grep(paste0(unique_gen, collapse = '|'), probs_files)]
+
+  # Set the generation as the names of probs_files. 
+  names(probs_files) = str_replace_all(probs_files, 
+                                       str_c('_alleleprobs_chr', chr,'.rds'), '')
+  names(probs_files) = str_sub(names(probs_files), start = -2, end = -1)
+
+  # Read in the allele probs for this chromosome.
+  probs = lapply(probs_files, readRDS)
   
-    print(chr[[i]])
+  # Get the number of samples in each generation.
+  n_samples = sapply(probs, dim)[1,]
 
-    probs = readRDS(probs_files[i])
+  # Create a generation vector for the linear model.
+  gen_vec = rep(as.numeric(names(probs)), n_samples)
 
+  # Get the number of markers.
+  markers   = dimnames(probs[[1]])[[3]]
+  n_markers = dim(probs[[1]])[3]
+
+  # Create results data structure.
+  lm_result = array(0, dim = c(n_markers, 3, 8), 
+                    dimnames = list(markers, c('slope', 'rsq', 'p.value'), LETTERS[1:8]))
+  
+  # TBD: Would tidyverse be easier? more data-wrangling to get data
+  # into a format that tidyverse can us.
+  
+  for(i in 1:nrow(lm_result)) {
+  
+    if(i %% 100 == 0) print(str_c('   ', i))
+  
+    # Get the probs into one data structure.
+    mkr = markers[i]
+    pr  = sapply(probs, function(z) { z[,,mkr] })
+    pr  = do.call(rbind, pr)
+  
+    # Fit a model of probs ~ gen.
+    mod  = lm(pr ~ gen_vec)
+    smry = summary(mod)
     
-
+    # Extract results.
+    # slope
+    lm_result[i,'slope',]   = sapply(smry, function(z) { z$coefficients[2,1] })
+    # adjusted R squared
+    lm_result[i,'rsq',]     = sapply(smry, function(z) { z$adj.r.squared })
+    # p.value
+    lm_result[i,'p.value',] = sapply(smry, function(z) { z$coefficients[2,4] })
+  
   } # for(i)
 
-} # get_founder_freq()
+  saveRDS(lm_result, file = file.path(out_dir, str_c('lm_result_chr', chr, '.rds')))  
+
+} # for(chr)
+
 
