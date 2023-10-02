@@ -65,6 +65,7 @@ for(chr in c(1:19, 'X')) {
 
   # Create a generation vector for the linear model.
   gen_vec = rep(as.numeric(names(probs)), n_samples)
+  gen     = unique(gen_vec)
 
   # Get the number of markers.
   markers   = dimnames(probs[[1]])[[3]]
@@ -85,11 +86,15 @@ for(chr in c(1:19, 'X')) {
     mkr = markers[i]
     pr  = sapply(probs, function(z) { z[,,mkr] })
     pr  = do.call(rbind, pr)
+    pr  = data.frame(pr)
   
-    # Fit a model of probs ~ gen.
-    mod  = lm(pr ~ gen_vec)
-    smry = summary(mod)
+    # Get the mean founder frequency in each generation.
+    mean_freq = t(sapply(split(pr, gen_vec), colMeans))
     
+    # Fit a model of probs ~ gen.
+    mod  = lm(mean_freq ~ gen)
+    smry = summary(mod)
+
     # Extract results.
     # slope
     lm_result[i,'slope',]   = sapply(smry, function(z) { z$coefficients[2,1] })
