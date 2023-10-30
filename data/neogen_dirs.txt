@@ -2,6 +2,7 @@
 224_Harrill_DO_Drug_Toxicity
 232_Attie_DO_Islets
 240_Tkatchenko_DO_Eye
+Allikmets_Columbia
 Al_Barghouthi_2021
 Attie_DO_Invivo
 Bolcun_Filas_DO_Superovulation
@@ -20,6 +21,5 @@ Luanne_Peters
 Nussenzweig_DO
 Pazdro_DO_Cardiac_Hypertrophy
 Sethupathy_Rockefeller
-Ted_Choi_DO_ES_cells
 Tufts_Beamer
 Zimring_RBC
