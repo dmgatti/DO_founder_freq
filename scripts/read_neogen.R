@@ -43,7 +43,7 @@ read_neogen = function(top_dir) {
     if(length(fr_file) == 0) {
     
       print(paste('No FinalReport file in', neogen_dirs[i]))
-      quit(1)    
+      quit(status=1)  
     
     } # if(length(fr_file) == 0)
 
@@ -80,10 +80,12 @@ read_neogen = function(top_dir) {
            
     ix = ii %>%
            select(-Y) %>%
+           mutate(X = as.numeric(X)) %>%      # This was needed for some data sets.
            pivot_wider(names_from = id, values_from = X)
 
     iy = ii %>%
            select(-X) %>%
+           mutate(Y = as.numeric(Y)) %>%      # This was needed for some data sets.
            pivot_wider(names_from = id, values_from = Y)
 
     if(is.null(inten_x)) {
