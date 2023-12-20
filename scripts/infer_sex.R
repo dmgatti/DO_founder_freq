@@ -9,8 +9,8 @@
 # data.frame containing sample id and inferred sex.
 # XO:  chrX <  0.9 & chrY < 0.3
 # XX:  chrX >= 0.9 & chrY < 0.3
-# XY:  chrX <  1.0 & chrY >= 0.3
-# XXY: chrX >= 1.0 & chrY > 0.3
+# XY:  chrX <  0.9 & chrY >= 0.3
+# XXY: chrX >= 0.9 & chrY > 0.3
 # 
 # Daniel Gatti
 # dan.gatti@jax.org
@@ -43,20 +43,21 @@ infer_sex = function(x, y, markers) {
                      chry = 0,
                      sex  = '')
 
-  inten$chrx = colMeans(x[chrx,] + y[chrx,], na.rm = TRUE)
-  inten$chry = colMeans(x[chry,] + y[chry,], na.rm = TRUE)
+  # Trying to mimic the R value in Illumina workflows.
+  inten$chrx = colMeans(sqrt(x[chrx,]^2 + y[chrx,]^2), na.rm = TRUE)
+  inten$chry = colMeans(sqrt(x[chry,]^2 + y[chry,]^2), na.rm = TRUE)
   
   # Females: high chrX, low chrY.
   inten$sex[inten$chrx >= 0.9 & inten$chry < 0.3] = 'F'
 
   # Males: low chrX, high chrY.
-  inten$sex[inten$chrx < 1.0  & inten$chry >= 0.3] = 'M'
+  inten$sex[inten$chrx < 0.9  & inten$chry >= 0.3] = 'M'
 
   # XO females: low chrX, low chrY.
   inten$sex[inten$chrx < 0.9  & inten$chry < 0.3] = 'XO'
 
   # XXY: high chrX, high chrY.
-  inten$sex[inten$chrx >= 1.0 & inten$chry > 0.3] = 'XXY'
+  inten$sex[inten$chrx >= 0.9 & inten$chry > 0.3] = 'XXY'
 
   return(inten)
 
