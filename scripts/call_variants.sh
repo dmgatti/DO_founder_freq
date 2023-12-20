@@ -2,8 +2,10 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 10
-#SBATCH --mem 128G
-#SBATCH --time 0-4:00
+#SBATCH --mem 16G
+#SBATCH --time 0-6:00
+#SBATCH --array 1-20
+
 ################################################################################
 # Using the 48 seqWell DO low-coverage sequencing samples to call variants
 # in the DO. Combine the sample BAMs into a single BAM file. Get thet set 
@@ -18,11 +20,21 @@ set -e -u -o pipefail
 
 ##### VARIABLES #####
 
+CHR=${SLURM_ARRAY_TASK_ID}
+
+if [ ${CHR} -eq 20 ]
+then
+  CHR=X
+fi
+
 # Base directory for project.
 BASE_DIR=/compsci/gedi/DO_founder_freq
 
 # BAM directory.
 BAM_DIR=${BASE_DIR}/data/bams
+
+# List of BAM files.
+BAM_FILES=`ls ${BAM_DIR}/*.bam`
 
 # Output directory.
 OUT_DIR=${BASE_DIR}/results/do_variants
@@ -42,7 +54,16 @@ BCFTOOLS=${CONTAINER_DIR}/quay.io-biocontainers-bcftools-1.10.2--h4f4756c_3.img
 # Mouse GRCm39 reference FASTA file.
 REF_FASTA=/compsci/gedi/reference/Mus_musculus.GRCm39.dna.primary_assembly.fa
 
+# Number of threads to use.
+N_THREADS=10
+
+# Output file for this chromosome.
+VCF_FILE=${OUT_DIR}/do_variants_chr${CHR}.vcf.gz
+
+
 ##### MAIN #####
+
+echo CHR ${CHR}
 
 module load singularity
 
@@ -50,7 +71,7 @@ module load singularity
 mkdir -p ${OUT_DIR}
 
 # Create file with paths to BAM files.
-ls -1 ${BAM_DIR}/*.bam > bamlist.txt
+ls -1 ${BAM_DIR}/*sorted.bam > bamlist.txt
 
 # Merge the BAM files.
 #singularity  exec -B /compsci ${SAMTOOLS} samtools merge \
@@ -58,7 +79,7 @@ ls -1 ${BAM_DIR}/*.bam > bamlist.txt
 #                                         -o ${COMBINED_BAM} \
 #                                         --threads 8
 # Sort the BAM file.
-#singularity exec ${SAMTOOLS} samtools sort \
+#singularity exec -B /compsci ${SAMTOOLS} samtools sort \
 #                                      -O bam \
 #                                      -o 
 #                                      ${COMBINED_BAM}
@@ -68,16 +89,59 @@ ls -1 ${BAM_DIR}/*.bam > bamlist.txt
 #                                         -@ 8 \
 #                                         ${COMBINED_BAM}
 
-# Call variants in the combined BAM file.
+# Sort and index the sample BAMs.
+#for BAM in ${BAM_FILES}
+#do
+
+  # Sort the BAM file.
+#  singularity exec -B /compsci ${SAMTOOLS} samtools sort \
+#                                           -O bam \
+#                                           -o ${BAM/skipped_downsampled/sorted} \
+#                                           ${BAM}
+  # Index the BAM file.
+#  singularity exec -B /compsci ${SAMTOOLS} samtools index \
+#                                           -@ 8 \
+#                                           ${BAM/skipped_downsampled/sorted}
+
+#done
+
+# List of sorted BAM files.
+SORTED_BAM_FILES=`ls ${BAM_DIR}/*sorted.bam`
+
+# Call variants in the individual BAM files.
 singularity exec -B /compsci ${BCFTOOLS} bcftools mpileup \
-                                         -Ou \
-                                         -f ${REF_FASTA} \
+                                         --fasta-ref ${REF_FASTA} \
+                                         --output-type u \
                                          --max-depth 1000 \
-                                         --threads 8 \
-                                         ${COMBINED_BAM} | \
+                                         --threads ${N_THREADS} \
+                                         --ignore-RG \
+                                         --regions ${CHR}:1-200000000 \
+                                         ${SORTED_BAM_FILES} |
 singularity exec -B /compsci ${BCFTOOLS} bcftools call \
-                                         -mv \
+                                         --multiallelic-caller \
+                                         --threads ${N_THREADS} \
                                          --output-type z \
-                                         --output ${OUT_DIR}/seqwell_do_calls.vcf.gz \
-                                         --threads 8
+                                         --output ${VCF_FILE} \
+                                         --variants-only
+
+# Index the VCF.
+singularity exec -B /compsci ${SAMTOOLS} tabix --preset vcf ${VCF_FILE}
+
+# Call variants in the combined BAM file.
+VCF_FILE=${OUT_DIR}/do_variants_chr${CHR}_combined.vcf.gz
+
+singularity exec -B /compsci ${BCFTOOLS} bcftools mpileup \
+                                         --fasta-ref ${REF_FASTA} \
+                                         --output-type u \
+                                         --max-depth 1000 \
+                                         --threads ${N_THREADS} \
+                                         --ignore-RG \
+                                         --regions ${CHR}:1-200000000 \
+                                         ${COMBINED_BAM} |
+singularity exec -B /compsci ${BCFTOOLS} bcftools call \
+                                         --multiallelic-caller \
+                                         --threads ${N_THREADS} \
+                                         --output-type z \
+                                         --output ${VCF_FILE} \
+                                         --variants-only
 
