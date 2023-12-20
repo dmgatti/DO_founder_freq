@@ -18,7 +18,7 @@
 
 set -e -u -o pipefail
 
-PROJECT=Sethupathy_Rockefeller
+PROJECT=Bolcun_Filas_DO_Oocyte
 
 CHR=${SLURM_ARRAY_TASK_ID}
 

@@ -27,11 +27,11 @@ suppressPackageStartupMessages(library(qtl2))
 
 # Get command line arguments.
 args = commandArgs(trailingOnly = TRUE)
-# args = 'Sethupathy_Rockefeller'
+# args = 'Bolcun_Filas_DO_Oocyte'
 
 if (length(args) != 1) {
 
-  print("usage: read_neogen <NEOGEN_DIR>")
+  print("usage: prepare_qtl2_data <PROJECT>")
   quit(status = 1)
 
 } # if (length(args) != 1) 
@@ -50,8 +50,11 @@ data_dir = file.path(base_dir, 'data')
 # Reference data directory.
 ref_dir = file.path(data_dir, 'reference')
 
-# Output directory for qtl2 cross files.
+# Overall qtl2 directory.
 qtl2_dir = file.path(data_dir, 'qtl2')
+
+# Output directory for qtl2 cross files. 
+qtl2_project_dir = file.path(qtl2_dir, project)
 
 # Source directory for Neogen genotypes.
 source_dir = file.path('/gedi/resource/MUGA/raw_neogen_data/GigaMUGA', project)
@@ -83,6 +86,9 @@ source('/compsci/gedi/DO_founder_freq/scripts/chrMY_geno.R')
 source('/compsci/gedi/DO_founder_freq/scripts/write_json.R')
 
 ##### MAIN #####
+
+# Create the output directory.
+dir.create(qtl2_project_dir, showWarnings = FALSE, recursive = FALSE, mode = '0775')
 
 # Read in the sample metadata file.
 metadata = read.csv(metadata_file)
@@ -169,12 +175,13 @@ sex = infer_sex(inten_x, inten_y, markers)
 
 # Fill in metadata.
 metadata$Sex       = sex$sex[match(metadata$Unique.Sample.ID,      sex$id)]
+metadata$x_int     = sex$chrx[match(metadata$Unique.Sample.ID,     sex$id)]
+metadata$y_int     = sex$chry[match(metadata$Unique.Sample.ID,     sex$id)]
 metadata$call_rate = cr$call_rate[match(metadata$Unique.Sample.ID, cr$id)]
 
 # Estimate Chr Y & M haplotypes.
 # Chr M
 founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Mt.csv')) %>%
-             rownames_to_column(var = 'marker') %>%
              as.data.frame()
 samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
@@ -190,7 +197,6 @@ chrM = chrM_geno(founders, samples)
 
 # Chr Y
 founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Y.csv')) %>%
-             rownames_to_column(var = 'marker') %>%
              as.data.frame()
 samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
@@ -222,7 +228,7 @@ geno = prepare_sample_geno(geno = geno, alleles = alleles, markers = markers)
 for(i in seq_along(geno)) {
 
   print(names(geno)[i])
-  write_csv(geno[[i]], file = file.path(qtl2_dir, str_c('geno_chr', names(geno)[i], '.csv')))
+  write_csv(geno[[i]], file = file.path(qtl2_project_dir, str_c('geno_chr', names(geno)[i], '.csv')))
 
 } # for(i)
 
@@ -235,14 +241,14 @@ covar = data.frame(id  = metadata$Unique.Sample.ID,
                 sex = if_else(sex == 'XO',  'male',   sex),
                 sex = if_else(sex == 'XXY', 'female', sex))
 
-covar_file = file.path(qtl2_dir, 'covar.csv')
+covar_file = file.path(qtl2_project_dir, 'covar.csv')
 write_csv(covar, file = covar_file)
 
 # Write phenotype file.
 pheno = data.frame(id    = covar$id,
                    pheno = rnorm(nrow(covar)))
 
-pheno_file = file.path(qtl2_dir, 'pheno.csv')
+pheno_file = file.path(qtl2_project_dir, 'pheno.csv')
 write_csv(pheno, file = pheno_file)
 
 
@@ -250,11 +256,11 @@ write_csv(pheno, file = pheno_file)
 for(i in c(1:19, 'X')) {
 
   geno_file    = str_c('geno_chr', i, '.csv')
-  founder_file = file.path('reference', str_c('founder_geno_chr', i, '.csv'))
-  gmap_file    = file.path('reference', str_c('gmap_chr', i, '.csv'))
-  pmap_file    = file.path('reference', str_c('pmap_chr', i, '.csv'))
+  founder_file = file.path('../reference', str_c('founder_geno_chr', i, '.csv'))
+  gmap_file    = file.path('../reference', str_c('gmap_chr', i, '.csv'))
+  pmap_file    = file.path('../reference', str_c('pmap_chr', i, '.csv'))
   
-  write_json(out_dir = qtl2_dir, chr = i, geno_file, founder_file, gmap_file, 
+  write_json(out_dir = qtl2_project_dir, chr = i, geno_file, founder_file, gmap_file, 
              pmap_file, basename(pheno_file), basename(covar_file))
 
 } # for(i in c(1:19, 'X'))

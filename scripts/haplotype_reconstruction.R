@@ -31,7 +31,7 @@ chr     = args[2]
 base_dir = '/compsci/gedi/DO_founder_freq'
 
 # Directory containing qtl2 files.
-qtl2_dir = file.path(base_dir, 'data', 'qtl2')
+qtl2_dir = file.path(base_dir, 'data', 'qtl2', project)
 
 # Results directory.
 results_dir = file.path(base_dir, 'results')

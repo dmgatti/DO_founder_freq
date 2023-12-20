@@ -12,7 +12,7 @@ get_call_rate = function(geno) {
 
   geno = as.matrix(geno[,-1])
 
-  cr   = colMeans(geno != '--')
+  cr   = colMeans(geno != '--', na.rm = TRUE)
 
   return(data.frame(id        = names(cr), 
                     call_rate = cr))
