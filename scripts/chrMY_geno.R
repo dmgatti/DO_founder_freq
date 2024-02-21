@@ -1,6 +1,7 @@
 ################################################################################
 # Given the CC/DO founder and sample genotypes, assign each sample to one of the
-# founder mitochondrialor chr Y genotypes.
+# founder mitochondrial or chr Y genotypes.
+# GigaMUGA version.
 #
 # Daniel Gatti
 # dan.gatti@jax.org
@@ -44,29 +45,45 @@ chrM_geno = function(founders, samples) {
   stopifnot(nrow(founders) == nrow(samples))
   stopifnot(founders$marker == samples$marker)
 
+  # List the Chr M haplogroups.
+  chrM_haplogroups = c('ABCD', 'E', 'F', 'G', 'H')
+
   # Make substitution vector for mitochondrial groups.
-  chr_groups = setNames(rep(c('ABCD', 'E', 'F', 'G', 'H'), c(4, 1, 1, 1, 1)),
+  chr_groups = setNames(rep(chrM_haplogroups, c(4, 1, 1, 1, 1)),
                         LETTERS[1:8])
-
-  # Convert founder data into a long numeric matrix with 8 columns,
-  # one for each founder.
+                        
+  # Create a founder data.frame contining only the haplogroups.
   f = founders
-  rownames(f) = f$marker
-  f  = data.frame(t(f[,-1]))
-  dn = dimnames(f)
-  f  = lapply(f, factor)
-  f  = matrix(as.numeric(unlist(f)), ncol = length(f[[1]]), byrow = TRUE, 
-              dimnames = list(NULL, dn[[1]]))
+  colnames(f)[-1] = chr_groups
+  f = f[,unique(colnames(f))]
+  
+  # Combine the founder and sample data and convert genotypes to numbers.
+  comb = merge(f, samples, by = 'marker', sort = FALSE)
 
-  s = samples
-  rownames(s) = s$marker
-  s  = data.frame(t(s[,-1]))
-  dn = dimnames(s)
-  s  = lapply(s, factor)
-  s  = matrix(as.numeric(unlist(s)), ncol = length(s[[1]]), byrow = TRUE,
-              dimnames = list(NULL, dn[[1]]))
+  # Transpose that data to put markers in columns.
+  rownames(comb) = comb$marker
+  comb  = data.frame(t(comb[,-1]))
+  
+  # Get the dimnames to put on the combined matrix.
+  dn    = dimnames(comb)
+  
+  # Factor the genotypes and convert to numbers. 
+  comb  = lapply(comb, factor)
+  comb  = lapply(comb, as.numeric)
+  comb  = matrix(unlist(comb), nrow = length(comb), ncol = length(comb[[1]]), 
+                 byrow = TRUE, dimnames = list(dn[[2]], dn[[1]]))
 
+  # Split up the founder haplogroups and samples.
+  f = comb[,1:length(chrM_haplogroups)]
+  s = comb[,-(1:length(chrM_haplogroups))]
+  rm(comb) 
+
+  stopifnot(rownames(f) == rownames(s))
+
+  # Get the correlation between all haplogrups and all samples.
   fg_cor  = cor(f, s, use = 'pairwise')
+  
+  # Select the founder haplogroup with the highest correlation to each sample.
   max_cor = apply(fg_cor, 2, max)
   max_grp = apply(fg_cor, 2, which.max)
   max_grp = setNames(colnames(f)[max_grp], names(max_grp))
@@ -94,39 +111,63 @@ chrY_geno = function(founders, samples, sex) {
   # would be a good idea.
   stopifnot(nrow(founders) == nrow(samples))
   stopifnot(founders$marker == samples$marker)
+  
+  # If we have only females, we can return now. 
+  if(all(unique(sex$sex) %in% c('F', 'XO'))) {
+    retval = data.frame(id       = sex$id,
+                        chrY     = rep(NA, nrow(sex)),
+                        chrY_cor = rep(NA, nrow(sex)))
+
+    return(retval)
+  
+  } # if(all(unique(sex$sex) %in% c('F', 'XO')))
+  
+  # List the Chr Y haplogroups.
+  chrY_haplogroups = c('A', 'BCE', 'D', 'F', 'G', 'H')
 
   # Make substitution vector for Chr Y groups.
-  chr_groups = setNames(rep(c('A', 'BCE', 'D', 'F', 'G', 'H'), c(1, 3, 1, 1, 1, 1)),
+  chr_groups = setNames(c('A', 'BCE', 'BCE','D', 'BCE','F', 'G', 'H'),
                         LETTERS[1:8])
 
-  # Convert founder data into a long numeric matrix with 8 columns,
-  # one for each founder.
+  # Create a founder data.frame contining only the haplogroups.
   f = founders
-  rownames(f) = f$marker
-  f  = data.frame(t(f[,-1]))
-  dn = dimnames(f)
-  f  = lapply(f, factor)
-  f  = matrix(as.numeric(unlist(f)), ncol = length(f[[1]]), byrow = TRUE, 
-              dimnames = list(NULL, dn[[1]]))
+  colnames(f)[-1] = chr_groups
+  f = f[,unique(colnames(f))]
+  
+  # Combine the founder and sample data and convert genotypes to numbers.
+  comb = merge(f, samples, by = 'marker', sort = FALSE)
 
-  s = samples
-  rownames(s) = s$marker
-  s  = data.frame(t(s[,-1]))
-  dn = dimnames(s)
-  s  = lapply(s, factor)
-  s  = matrix(as.numeric(unlist(s)), ncol = length(s[[1]]), byrow = TRUE,
-              dimnames = list(NULL, dn[[1]]))
+  # Transpose that data to put markers in columns.
+  rownames(comb) = comb$marker
+  comb  = data.frame(t(comb[,-1]))
+  
+  # Get the dimnames to put on the combined matrix.
+  dn    = dimnames(comb)
+  
+  # Factor the genotypes and convert to numbers. 
+  comb  = lapply(comb, factor)
+  comb  = lapply(comb, as.numeric)
+  comb  = matrix(unlist(comb), nrow = length(comb), ncol = length(comb[[1]]), 
+                 byrow = TRUE, dimnames = list(dn[[2]], dn[[1]]))
 
+  # Split up the founder haplogroups and samples.
+  f = comb[,1:length(chrY_haplogroups)]
+  s = comb[,-(1:length(chrY_haplogroups))]
+  rm(comb) 
+
+  stopifnot(rownames(f) == rownames(s))
+
+  # Get the correlation between all haplogroups and all samples.
   fg_cor  = cor(f, s, use = 'pairwise')
-  # Replace NAs with 0 so that max_grp isn't turned into a list.
-  # This may make females look like they match with 'ABCD'.
   fg_cor[is.na(fg_cor)] = 0
+  
+  # Select the founder haplogroup with the highest correlation to each sample.
   max_cor = apply(fg_cor, 2, max)
-  max_grp = apply(fg_cor, 2, which.max)
-  max_grp = setNames(colnames(f)[max_grp], names(max_grp))  
+  max_grp = apply(fg_cor, 2, which.max, simplify = TRUE)
+  max_grp = setNames(colnames(f)[max_grp], names(max_grp))
 
   stopifnot(names(max_cor) == names(max_grp))
-  
+
   # Set females to NA.
   retval = data.frame(id       = names(max_cor),
                       chrY     = max_grp,

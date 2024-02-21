@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
-#SBATCH --cpus-per-task 1
-#SBATCH --mem 32G
+#SBATCH --cpus-per-task 2
+#SBATCH --mem 16G
 #SBATCH --time 0-8:00
 #SBATCH --array=1-20
 
@@ -18,7 +18,7 @@
 
 set -e -u -o pipefail
 
-PROJECT=Bolcun_Filas_DO_Oocyte
+PROJECT=Zimring_RBC
 
 CHR=${SLURM_ARRAY_TASK_ID}
 

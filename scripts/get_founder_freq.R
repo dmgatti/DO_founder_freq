@@ -39,8 +39,8 @@ probs_files = str_replace_all(probs_files, 'gen|_alleleprobs_chr[0-9,X]+\\.rds',
 
 unique_gen  = sort(as.numeric(unique(probs_files)))
 
-# Just keep G22 and higher for now.
-unique_gen = unique_gen[unique_gen >= 22]
+# Just keep G15 and higher for now.
+unique_gen = unique_gen[unique_gen >= 15]
 
 # Read in each chomosome and fit a model at each marker of
 # probs ~ gen. Save the p-value and R^2.

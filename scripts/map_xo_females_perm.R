@@ -12,6 +12,12 @@ library(qtl2)
 
 ##### VARIABLES #####
 
+args = commandArgs(trailingOnly = TRUE)
+
+chr = args[1]
+
+if(chr == 20) chr = 'X'
+
 # Base project directory.
 base_dir = '/compsci/gedi/DO_founder_freq'
 
@@ -27,25 +33,23 @@ probs_dir = file.path(results_dir, 'genoprobs')
 # Output directory.
 out_dir = file.path(results_dir, 'map_xo_females')
 
+# Number of permutations.
+n_perm = 1000
 
 ##### MAIN #####
 
 # Read in phenotypes.
 pheno = readRDS(file = file.path(out_dir, 'pheno_xo.rds'))
 
-# Run permutations on each chromosome.
-for(chr in c(1:19, 'X')) {
-
-  print(chr)
-  t1 = proc.time()[3]
+# Run permutations on current chromosome.
+print(chr)
+t1 = proc.time()[3]
   
-  probs = readRDS(file = file.path(out_dir, paste0('chr', chr, '_alleleprobs_female.rds')))
+probs = readRDS(file = file.path(out_dir, paste0('chr', chr, '_alleleprobs_female.rds')))
 
-  perms = scan1perm(probs, pheno, model = 'binary', n_perm = 1000, cores = 20)
+perms = scan1perm(probs, pheno, model = 'binary', n_perm = n_perm, cores = 10)
   
-  saveRDS(perms, file = file.path(out_dir, paste0('perms_chr', chr, '.rds')))
+saveRDS(perms, file = file.path(out_dir, paste0('perms_chr', chr, '.rds')))
 
-  print(proc.time()[3] - t1)
-
-} # for(chr)
+print(proc.time()[3] - t1)
 

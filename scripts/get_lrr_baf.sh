@@ -2,27 +2,24 @@
 #SBATCH --nodes 1
 #SBATCH --ntasks 1
 #SBATCH --cpus-per-task 1
-#SBATCH --mem 64G
-#SBATCH --time 0-8:00
+#SBATCH --mem 128G
+#SBATCH --time 0-12:00
 
 ################################################################################
-# Reorg.
+# Use argyle to get the log2-ratio of intensities and the B-allele frequency.
+# These are described in https://pubmed.ncbi.nlm.nih.gov/26684930/.
 #
 # Daniel Gatti
 # dan.gatti@jax.org
-# 2023-09-26
+# 2023-12-20 
 ################################################################################
 
 ##### VARIABLES #####
 
-set -e -u -o pipefail
-
-# R container with qtl2.
-R=/compsci/gedi/DO_founder_freq/containers/r_qtl2.sif
+R=/compsci/gedi/DO_founder_freq/containers/argyle.sif
 
 ##### MAIN #####
 
 module load singularity
 
-singularity exec -B /compsci ${R} Rscript org_probs_by_gen.R
-
+singularity exec -B /compsci,/gedi ${R} Rscript get_lrr_baf.R

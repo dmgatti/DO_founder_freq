@@ -27,7 +27,7 @@ suppressPackageStartupMessages(library(qtl2))
 
 # Get command line arguments.
 args = commandArgs(trailingOnly = TRUE)
-# args = 'Bolcun_Filas_DO_Oocyte'
+# args = '240_Tkatchenko_DO_Eye'
 
 if (length(args) != 1) {
 
@@ -48,7 +48,7 @@ base_dir = '/compsci/gedi/DO_founder_freq'
 data_dir = file.path(base_dir, 'data')
 
 # Reference data directory.
-ref_dir = file.path(data_dir, 'reference')
+ref_dir = file.path(base_dir, '../reference')
 
 # Overall qtl2 directory.
 qtl2_dir = file.path(data_dir, 'qtl2')
@@ -66,7 +66,7 @@ output_geno_dir = file.path(data_dir, 'genotypes')
 output_inten_dir = file.path(data_dir, 'intensities')
 
 # Sample metadata file.
-# This is a copy of GigaMUGA.samples.20230918.csv which we modify
+# This is a copy of GigaMUGA.samples.20231219.csv which we modify
 # by adding inferred sex, and Chr M & Y genotypes.
 metadata_file = file.path(data_dir, 'gigamuga_sample_metadata.csv')
 
@@ -74,7 +74,7 @@ metadata_file = file.path(data_dir, 'gigamuga_sample_metadata.csv')
 marker_file = file.path(data_dir, 'gm_uwisc_v4.csv')
 
 # Allele code file.
-allele_file = file.path(ref_dir, 'allele_codes.rds')
+allele_file = file.path(ref_dir, 'gm_allele_codes.rds')
 
 ##### FUNCTIONS #####
 
@@ -111,6 +111,7 @@ inten_y = neogen$inten_y
 rm(neogen)
 
 #metadata$Unique.Sample.ID[!metadata$Unique.Sample.ID %in% colnames(geno)]
+#colnames(geno)[!colnames(geno) %in% metadata$Unique.Sample.ID]
 
 # Only keep samples that are in the metadata.
 geno    = geno[,   c('marker', metadata$Unique.Sample.ID)]
@@ -181,7 +182,10 @@ metadata$call_rate = cr$call_rate[match(metadata$Unique.Sample.ID, cr$id)]
 
 # Estimate Chr Y & M haplotypes.
 # Chr M
-founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Mt.csv')) %>%
+founders = read_csv(file.path(ref_dir, 'GigaMUGA_founder_consensus_genotypes.csv'),
+                    show_col_types = FALSE) %>%
+             inner_join(select(markers, marker, chr) %>% filter(chr == 'M')) %>%
+             select(-chr) %>%
              as.data.frame()
 samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
@@ -192,12 +196,20 @@ samples  = geno %>%
              select(-chr) %>%
              as.data.frame()
 samples = samples[match(founders$marker, samples$marker),]
+stopifnot(founders$marker == samples$marker)
 
 chrM = chrM_geno(founders, samples)
 
 # Chr Y
-founders = read_csv(file.path(data_dir, 'GigaMUGA_founder_consensus_genotypes_Y.csv')) %>%
+founders = read_csv(file.path(ref_dir, 'gm_founder_geno_chry.csv'),
+                    show_col_types = FALSE) %>%
+             inner_join(select(markers, marker, chr) %>% filter(chr == 'Y')) %>%
+             pivot_longer(cols = -marker) %>%
+             mutate(value = str_sub(value, start = 1L, end = 1L)) %>%
+             pivot_wider(names_from = name, values_from = value) %>%
+             select(-chr) %>%
              as.data.frame()
+
 samples  = geno %>%
              left_join(select(markers, marker, chr), by = 'marker') %>%
              filter(chr == 'Y') %>%
@@ -207,6 +219,7 @@ samples  = geno %>%
              select(-chr) %>%
              as.data.frame()
 samples = samples[match(founders$marker, samples$marker),]
+stopifnot(founders$marker == samples$marker)
 
 chrY = chrY_geno(founders, samples, sex = sex)
 
@@ -219,16 +232,67 @@ metadata = metadata %>%
 write_csv(metadata, file = file.path(data_dir, 'metadata', 
           str_c(project, '_metadata.csv')))
 
+# Read in founder genotypes.
+founders = read_csv(file.path(ref_dir, 'GigaMUGA_founder_consensus_genotypes.csv'),
+                    show_col_types = FALSE) %>%
+           as.data.frame()
+
+# Convert founders to two-letter format.
+for(i in 2:ncol(founders)) {
+
+  founders[,i] = paste0(founders[,i], founders[,i])
+  founders[founders[,i] == 'NN', i] = '--'
+
+} # for(i)
+
 # Read in alleles.
 alleles = readRDS(allele_file)
 
+# Convert genotypes to a data.frame.
+geno = geno %>%
+         as.data.frame()
+
+# Order the markers in geno to match markers.
+markers  = subset(markers, marker %in% founders$marker)
+founders = founders[match(markers$marker, founders$marker),]
+geno     = geno[match(markers$marker,     geno$marker),]
+stopifnot(founders$marker == markers$marker)
+stopifnot(geno$marker     == markers$marker)
+stopifnot(founders$marker == geno$marker)
+
 # Prepare genotypes for qtl2.
-geno = prepare_sample_geno(geno = geno, alleles = alleles, markers = markers)
+new_geno = prepare_sample_geno(samples = geno, 
+                               founder = founders, 
+                               alleles = alleles, 
+                               markers = markers)
 
-for(i in seq_along(geno)) {
+founders = new_geno$founders
+samples  = new_geno$samples
+rm(new_geno)
 
-  print(names(geno)[i])
-  write_csv(geno[[i]], file = file.path(qtl2_project_dir, str_c('geno_chr', names(geno)[i], '.csv')))
+# Write out the founder genotypes.
+for(i in seq_along(founders)) {
+
+  print(names(founders)[i])
+  
+  founders[[i]] = as.data.frame(founders[[i]]) %>%
+                    as.data.frame()
+             
+  write_csv(founders[[i]], file = file.path(qtl2_project_dir, 
+            str_c('founder_geno_chr', names(founders)[i], '.csv')))
+
+} # for(i)
+
+# Write out the sample genotypes.
+for(i in seq_along(samples)) {
+
+  print(names(samples)[i])
+  
+  samples[[i]] = as.data.frame(samples[[i]]) %>%
+                   as.data.frame()
+  
+  write_csv(samples[[i]], file = file.path(qtl2_project_dir, 
+            str_c('geno_chr', names(samples)[i], '.csv')))
 
 } # for(i)
 
@@ -256,7 +320,7 @@ write_csv(pheno, file = pheno_file)
 for(i in c(1:19, 'X')) {
 
   geno_file    = str_c('geno_chr', i, '.csv')
-  founder_file = file.path('../reference', str_c('founder_geno_chr', i, '.csv'))
+  founder_file = str_c('founder_geno_chr', i, '.csv')
   gmap_file    = file.path('../reference', str_c('gmap_chr', i, '.csv'))
   pmap_file    = file.path('../reference', str_c('pmap_chr', i, '.csv'))
   

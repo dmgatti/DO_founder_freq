@@ -55,13 +55,13 @@ print('Writing cross object.')
 saveRDS(cross, file = file.path(cross_dir, paste0(project, '_cross_chr', chr, '.rds')))
 
 print('Running HR')
-probs = calc_genoprob(cross, map = cross$gmap, cores = 1, quiet = FALSE)
+probs = calc_genoprob(cross, map = cross$gmap, cores = 2, quiet = FALSE)
 
 print('Writing 36 state genoprobs')
 saveRDS(probs, file = file.path(probs_dir, paste0(project, '_genoprobs_chr', chr, '.rds')))
 
 print('Converting 36 state genoprobs to 8 state allele probs')
-aprobs = genoprob_to_alleleprob(probs, cores = 1, quiet = FALSE)
+aprobs = genoprob_to_alleleprob(probs, cores = 2, quiet = FALSE)
 
 print('Writing allele probs')
 saveRDS(aprobs, file = file.path(probs_dir, paste0(project, '_alleleprobs_chr', chr, '.rds')))
